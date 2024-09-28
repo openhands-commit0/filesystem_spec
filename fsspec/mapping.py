@@ -4,11 +4,8 @@ import posixpath
 import warnings
 from collections.abc import MutableMapping
 from functools import cached_property
-
 from fsspec.core import url_to_fs
-
-logger = logging.getLogger("fsspec.mapping")
-
+logger = logging.getLogger('fsspec.mapping')
 
 class FSMap(MutableMapping):
     """Wrap a FileSystem instance as a mutable wrapping.
@@ -41,13 +38,9 @@ class FSMap(MutableMapping):
     def __init__(self, root, fs, check=False, create=False, missing_exceptions=None):
         self.fs = fs
         self.root = fs._strip_protocol(root)
-        self._root_key_to_str = fs._strip_protocol(posixpath.join(root, "x"))[:-1]
+        self._root_key_to_str = fs._strip_protocol(posixpath.join(root, 'x'))[:-1]
         if missing_exceptions is None:
-            missing_exceptions = (
-                FileNotFoundError,
-                IsADirectoryError,
-                NotADirectoryError,
-            )
+            missing_exceptions = (FileNotFoundError, IsADirectoryError, NotADirectoryError)
         self.missing_exceptions = missing_exceptions
         self.check = check
         self.create = create
@@ -56,30 +49,20 @@ class FSMap(MutableMapping):
                 self.fs.mkdir(root)
         if check:
             if not self.fs.exists(root):
-                raise ValueError(
-                    f"Path {root} does not exist. Create "
-                    f" with the ``create=True`` keyword"
-                )
-            self.fs.touch(root + "/a")
-            self.fs.rm(root + "/a")
+                raise ValueError(f'Path {root} does not exist. Create  with the ``create=True`` keyword')
+            self.fs.touch(root + '/a')
+            self.fs.rm(root + '/a')
 
     @cached_property
     def dirfs(self):
         """dirfs instance that can be used with the same keys as the mapper"""
-        from .implementations.dirfs import DirFileSystem
-
-        return DirFileSystem(path=self._root_key_to_str, fs=self.fs)
+        pass
 
     def clear(self):
         """Remove all keys below root - empties out mapping"""
-        logger.info("Clear mapping at %s", self.root)
-        try:
-            self.fs.rm(self.root, True)
-            self.fs.mkdir(self.root)
-        except:  # noqa: E722
-            pass
+        pass
 
-    def getitems(self, keys, on_error="raise"):
+    def getitems(self, keys, on_error='raise'):
         """Fetch multiple items from the store
 
         If the backend is async-able, this might proceed concurrently
@@ -99,23 +82,7 @@ class FSMap(MutableMapping):
         -------
         dict(key, bytes|exception)
         """
-        keys2 = [self._key_to_str(k) for k in keys]
-        oe = on_error if on_error == "raise" else "return"
-        try:
-            out = self.fs.cat(keys2, on_error=oe)
-            if isinstance(out, bytes):
-                out = {keys2[0]: out}
-        except self.missing_exceptions as e:
-            raise KeyError from e
-        out = {
-            k: (KeyError() if isinstance(v, self.missing_exceptions) else v)
-            for k, v in out.items()
-        }
-        return {
-            key: out[k2]
-            for key, k2 in zip(keys, keys2)
-            if on_error == "return" or not isinstance(out[k2], BaseException)
-        }
+        pass
 
     def setitems(self, values_dict):
         """Set the values of multiple items in the store
@@ -124,29 +91,19 @@ class FSMap(MutableMapping):
         ----------
         values_dict: dict(str, bytes)
         """
-        values = {self._key_to_str(k): maybe_convert(v) for k, v in values_dict.items()}
-        self.fs.pipe(values)
+        pass
 
     def delitems(self, keys):
         """Remove multiple keys from the store"""
-        self.fs.rm([self._key_to_str(k) for k in keys])
+        pass
 
     def _key_to_str(self, key):
         """Generate full path for the key"""
-        if not isinstance(key, str):
-            # raise TypeError("key must be of type `str`, got `{type(key).__name__}`"
-            warnings.warn(
-                "from fsspec 2023.5 onward FSMap non-str keys will raise TypeError",
-                DeprecationWarning,
-            )
-            if isinstance(key, list):
-                key = tuple(key)
-            key = str(key)
-        return f"{self._root_key_to_str}{key}".rstrip("/")
+        pass
 
     def _str_to_key(self, s):
         """Strip path of to leave key name"""
-        return s[len(self.root) :].lstrip("/")
+        pass
 
     def __getitem__(self, key, default=None):
         """Retrieve data"""
@@ -161,12 +118,7 @@ class FSMap(MutableMapping):
 
     def pop(self, key, default=None):
         """Pop data"""
-        result = self.__getitem__(key, default)
-        try:
-            del self[key]
-        except KeyError:
-            pass
-        return result
+        pass
 
     def __setitem__(self, key, value):
         """Store value in key"""
@@ -184,7 +136,7 @@ class FSMap(MutableMapping):
         """Remove key"""
         try:
             self.fs.rm(self._key_to_str(key))
-        except:  # noqa: E722
+        except:
             raise KeyError
 
     def __contains__(self, key):
@@ -193,28 +145,9 @@ class FSMap(MutableMapping):
         return self.fs.isfile(path)
 
     def __reduce__(self):
-        return FSMap, (self.root, self.fs, False, False, self.missing_exceptions)
+        return (FSMap, (self.root, self.fs, False, False, self.missing_exceptions))
 
-
-def maybe_convert(value):
-    if isinstance(value, array.array) or hasattr(value, "__array__"):
-        # bytes-like things
-        if hasattr(value, "dtype") and value.dtype.kind in "Mm":
-            # The buffer interface doesn't support datetime64/timdelta64 numpy
-            # arrays
-            value = value.view("int64")
-        value = bytes(memoryview(value))
-    return value
-
-
-def get_mapper(
-    url="",
-    check=False,
-    create=False,
-    missing_exceptions=None,
-    alternate_root=None,
-    **kwargs,
-):
+def get_mapper(url='', check=False, create=False, missing_exceptions=None, alternate_root=None, **kwargs):
     """Create key-value interface for given URL and options
 
     The URL will be of the form "protocol://location" and point to the root
@@ -245,7 +178,4 @@ def get_mapper(
     -------
     ``FSMap`` instance, the dict-like key-value store.
     """
-    # Removing protocol here - could defer to each open() on the backend
-    fs, urlpath = url_to_fs(url, **kwargs)
-    root = alternate_root if alternate_root is not None else urlpath
-    return FSMap(root, fs, check, create, missing_exceptions=missing_exceptions)
+    pass

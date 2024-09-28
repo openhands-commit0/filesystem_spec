@@ -2,18 +2,12 @@
 This module contains SMBFileSystem class responsible for handling access to
 Windows Samba network shares by using package smbprotocol
 """
-
 import datetime
 import uuid
 from stat import S_ISDIR, S_ISLNK
-
 import smbclient
-
 from .. import AbstractFileSystem
 from ..utils import infer_storage_options
-
-# ! pylint: disable=bad-continuation
-
 
 class SMBFileSystem(AbstractFileSystem):
     """Allow reading and writing to Windows and Samba network shares.
@@ -54,23 +48,9 @@ class SMBFileSystem(AbstractFileSystem):
     there is no way to tell if a path is relative, so all paths are assumed
     to be absolute.
     """
+    protocol = 'smb'
 
-    protocol = "smb"
-
-    # pylint: disable=too-many-arguments
-    def __init__(
-        self,
-        host,
-        port=None,
-        username=None,
-        password=None,
-        timeout=60,
-        encrypt=None,
-        share_access=None,
-        register_session_retries=5,
-        auto_mkdir=False,
-        **kwargs,
-    ):
+    def __init__(self, host, port=None, username=None, password=None, timeout=60, encrypt=None, share_access=None, register_session_retries=5, auto_mkdir=False, **kwargs):
         """
         You can use _get_kwargs_from_urls to get some kwargs from
         a reasonable SMB url.
@@ -115,112 +95,21 @@ class SMBFileSystem(AbstractFileSystem):
         self.password = password
         self.timeout = timeout
         self.encrypt = encrypt
-        self.temppath = kwargs.pop("temppath", "")
+        self.temppath = kwargs.pop('temppath', '')
         self.share_access = share_access
         self.register_session_retries = register_session_retries
         self.auto_mkdir = auto_mkdir
         self._connect()
 
-    @property
-    def _port(self):
-        return 445 if self.port is None else self.port
-
-    def _connect(self):
-        import time
-
-        for _ in range(self.register_session_retries):
-            try:
-                smbclient.register_session(
-                    self.host,
-                    username=self.username,
-                    password=self.password,
-                    port=self._port,
-                    encrypt=self.encrypt,
-                    connection_timeout=self.timeout,
-                )
-                break
-            except Exception:
-                time.sleep(0.1)
-
-    @classmethod
-    def _strip_protocol(cls, path):
-        return infer_storage_options(path)["path"]
-
-    @staticmethod
-    def _get_kwargs_from_urls(path):
-        # smb://workgroup;user:password@host:port/share/folder/file.csv
-        out = infer_storage_options(path)
-        out.pop("path", None)
-        out.pop("protocol", None)
-        return out
-
-    def mkdir(self, path, create_parents=True, **kwargs):
-        wpath = _as_unc_path(self.host, path)
-        if create_parents:
-            smbclient.makedirs(wpath, exist_ok=False, port=self._port, **kwargs)
-        else:
-            smbclient.mkdir(wpath, port=self._port, **kwargs)
-
-    def makedirs(self, path, exist_ok=False):
-        if _share_has_path(path):
-            wpath = _as_unc_path(self.host, path)
-            smbclient.makedirs(wpath, exist_ok=exist_ok, port=self._port)
-
-    def rmdir(self, path):
-        if _share_has_path(path):
-            wpath = _as_unc_path(self.host, path)
-            smbclient.rmdir(wpath, port=self._port)
-
-    def info(self, path, **kwargs):
-        wpath = _as_unc_path(self.host, path)
-        stats = smbclient.stat(wpath, port=self._port, **kwargs)
-        if S_ISDIR(stats.st_mode):
-            stype = "directory"
-        elif S_ISLNK(stats.st_mode):
-            stype = "link"
-        else:
-            stype = "file"
-        res = {
-            "name": path + "/" if stype == "directory" else path,
-            "size": stats.st_size,
-            "type": stype,
-            "uid": stats.st_uid,
-            "gid": stats.st_gid,
-            "time": stats.st_atime,
-            "mtime": stats.st_mtime,
-        }
-        return res
-
     def created(self, path):
         """Return the created timestamp of a file as a datetime.datetime"""
-        wpath = _as_unc_path(self.host, path)
-        stats = smbclient.stat(wpath, port=self._port)
-        return datetime.datetime.fromtimestamp(stats.st_ctime, tz=datetime.timezone.utc)
+        pass
 
     def modified(self, path):
         """Return the modified timestamp of a file as a datetime.datetime"""
-        wpath = _as_unc_path(self.host, path)
-        stats = smbclient.stat(wpath, port=self._port)
-        return datetime.datetime.fromtimestamp(stats.st_mtime, tz=datetime.timezone.utc)
+        pass
 
-    def ls(self, path, detail=True, **kwargs):
-        unc = _as_unc_path(self.host, path)
-        listed = smbclient.listdir(unc, port=self._port, **kwargs)
-        dirs = ["/".join([path.rstrip("/"), p]) for p in listed]
-        if detail:
-            dirs = [self.info(d) for d in dirs]
-        return dirs
-
-    # pylint: disable=too-many-arguments
-    def _open(
-        self,
-        path,
-        mode="rb",
-        block_size=-1,
-        autocommit=True,
-        cache_options=None,
-        **kwargs,
-    ):
+    def _open(self, path, mode='rb', block_size=-1, autocommit=True, cache_options=None, **kwargs):
         """
         block_size: int or None
             If 0, no buffering, 1, line buffering, >1, buffer that many bytes
@@ -230,67 +119,11 @@ class SMBFileSystem(AbstractFileSystem):
         By specifying 'share_access' in 'kwargs' it is possible to override the
         default shared access setting applied in the constructor of this object.
         """
-        if self.auto_mkdir and "w" in mode:
-            self.makedirs(self._parent(path), exist_ok=True)
-        bls = block_size if block_size is not None and block_size >= 0 else -1
-        wpath = _as_unc_path(self.host, path)
-        share_access = kwargs.pop("share_access", self.share_access)
-        if "w" in mode and autocommit is False:
-            temp = _as_temp_path(self.host, path, self.temppath)
-            return SMBFileOpener(
-                wpath, temp, mode, port=self._port, block_size=bls, **kwargs
-            )
-        return smbclient.open_file(
-            wpath,
-            mode,
-            buffering=bls,
-            share_access=share_access,
-            port=self._port,
-            **kwargs,
-        )
+        pass
 
     def copy(self, path1, path2, **kwargs):
         """Copy within two locations in the same filesystem"""
-        wpath1 = _as_unc_path(self.host, path1)
-        wpath2 = _as_unc_path(self.host, path2)
-        if self.auto_mkdir:
-            self.makedirs(self._parent(path2), exist_ok=True)
-        smbclient.copyfile(wpath1, wpath2, port=self._port, **kwargs)
-
-    def _rm(self, path):
-        if _share_has_path(path):
-            wpath = _as_unc_path(self.host, path)
-            stats = smbclient.stat(wpath, port=self._port)
-            if S_ISDIR(stats.st_mode):
-                smbclient.rmdir(wpath, port=self._port)
-            else:
-                smbclient.remove(wpath, port=self._port)
-
-    def mv(self, path1, path2, recursive=None, maxdepth=None, **kwargs):
-        wpath1 = _as_unc_path(self.host, path1)
-        wpath2 = _as_unc_path(self.host, path2)
-        smbclient.rename(wpath1, wpath2, port=self._port, **kwargs)
-
-
-def _as_unc_path(host, path):
-    rpath = path.replace("/", "\\")
-    unc = f"\\\\{host}{rpath}"
-    return unc
-
-
-def _as_temp_path(host, path, temppath):
-    share = path.split("/")[1]
-    temp_file = f"/{share}{temppath}/{uuid.uuid4()}"
-    unc = _as_unc_path(host, temp_file)
-    return unc
-
-
-def _share_has_path(path):
-    parts = path.count("/")
-    if path.endswith("/"):
-        return parts > 2
-    return parts > 1
-
+        pass
 
 class SMBFileOpener:
     """writes to remote temporary file, move on commit"""
@@ -306,24 +139,13 @@ class SMBFileOpener:
         self.port = port
         self._open()
 
-    def _open(self):
-        if self.smbfile is None or self.smbfile.closed:
-            self.smbfile = smbclient.open_file(
-                self.temp,
-                self.mode,
-                port=self.port,
-                buffering=self.block_size,
-                **self.kwargs,
-            )
-
     def commit(self):
         """Move temp file to definitive on success."""
-        # TODO: use transaction support in SMB protocol
-        smbclient.replace(self.temp, self.path, port=self.port)
+        pass
 
     def discard(self):
         """Remove the temp file on failure."""
-        smbclient.remove(self.temp, port=self.port)
+        pass
 
     def __fspath__(self):
         return self.path
