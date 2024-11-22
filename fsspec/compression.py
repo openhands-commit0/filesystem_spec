@@ -2,6 +2,10 @@
 from zipfile import ZipFile
 import fsspec.utils
 from fsspec.spec import AbstractBufferedFile
+
+def noop_file(infile, mode, **kwargs):
+    """Return the input file without any compression/decompression"""
+    return infile
 compr = {None: noop_file}
 
 def register_compression(name, callback, extensions, force=False):
