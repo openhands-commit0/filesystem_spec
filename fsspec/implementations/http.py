@@ -293,4 +293,13 @@ async def _file_info(url, session, size_policy='head', **kwargs):
     'identity' (no compression) to get the true size of the target.
     """
     pass
+
+async def _file_size(url, session=None, **kwargs):
+    """Return the size of a file by URL
+
+    Uses HTTP HEAD request by default
+    """
+    info = await _file_info(url, session=session, **kwargs)
+    return info.get('size', None)
+
 file_size = sync_wrapper(_file_size)
