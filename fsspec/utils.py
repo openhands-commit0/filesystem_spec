@@ -209,7 +209,9 @@ def tokenize(*args: Any, **kwargs: Any) -> str:
     >>> tokenize('Hello') == tokenize('Hello')
     True
     """
-    pass
+    if kwargs:
+        args = args + (sorted(kwargs.items()),)
+    return md5(str(args).encode()).hexdigest()
 
 def stringify_path(filepath: str | os.PathLike[str] | pathlib.Path) -> str:
     """Attempt to convert a path-like object to a string.
