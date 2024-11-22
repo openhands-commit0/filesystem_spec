@@ -129,7 +129,7 @@ class AbstractFileSystem(metaclass=_Cached):
         """Persistent filesystem id that can be used to compare filesystems
         across sessions.
         """
-        pass
+        return sha256(str((type(self), self.storage_args, self.storage_options)).encode()).hexdigest()
 
     def __dask_tokenize__(self):
         return self._fs_token
@@ -149,11 +149,17 @@ class AbstractFileSystem(metaclass=_Cached):
 
         May require FS-specific handling, e.g., for relative paths or links.
         """
-        pass
+        path = stringify_path(path)
+        protos = (cls.protocol,) if isinstance(cls.protocol, str) else cls.protocol
+        for protocol in protos:
+            if path.startswith(protocol + '://'):
+                path = path[len(protocol) + 3:]
+                break
+        return path
 
     def unstrip_protocol(self, name: str) -> str:
         """Format FS-specific path to generic, including protocol"""
-        pass
+        return _unstrip_protocol(name)
 
     @staticmethod
     def _get_kwargs_from_urls(path):
@@ -165,7 +171,7 @@ class AbstractFileSystem(metaclass=_Cached):
         Examples may look like an sftp path "sftp://user@host:/my/path", where
         the user and host should become kwargs and later get stripped.
         """
-        pass
+        return {}
 
     @classmethod
     def current(cls):
@@ -173,7 +179,9 @@ class AbstractFileSystem(metaclass=_Cached):
 
         If no instance has been created, then create one with defaults
         """
-        pass
+        if not cls._cache:
+            return cls()
+        return list(cls._cache.values())[-1]
 
     @property
     def transaction(self):
@@ -182,15 +190,17 @@ class AbstractFileSystem(metaclass=_Cached):
         Requires the file class to implement `.commit()` and `.discard()`
         for the normal and exception cases.
         """
-        pass
+        return self.transaction_type(self)
 
     def start_transaction(self):
         """Begin write transaction for deferring files, non-context version"""
-        pass
+        self._intrans = True
+        self._transaction = self.transaction_type(self)
 
     def end_transaction(self):
         """Finish write transaction, non-context version"""
-        pass
+        self._intrans = False
+        self._transaction = None
 
     def invalidate_cache(self, path=None):
         """
@@ -202,7 +212,10 @@ class AbstractFileSystem(metaclass=_Cached):
             If None, clear all listings cached else listings at or under given
             path.
         """
-        pass
+        if self._intrans:
+            self._invalidated_caches_in_transaction.append(path)
+        else:
+            self.dircache.clear(path)
 
     def mkdir(self, path, create_parents=True, **kwargs):
         """
