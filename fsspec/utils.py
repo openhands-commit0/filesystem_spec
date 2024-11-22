@@ -209,6 +209,8 @@ def tokenize(*args: Any, **kwargs: Any) -> str:
     >>> tokenize('Hello') == tokenize('Hello')
     True
     """
+    if kwargs is None:
+        kwargs = {}
     if kwargs:
         args = args + (sorted(kwargs.items()),)
     return md5(str(args).encode()).hexdigest()
