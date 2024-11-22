@@ -26,7 +26,12 @@ class MemoryFileSystem(AbstractFileSystem):
 
         Avoids copies of the data if possible
         """
-        pass
+        path = self._strip_protocol(stringify_path(path))
+        if isinstance(value, bytes):
+            data = value
+        else:
+            data = value.read()
+        self.store[path] = MemoryFile(self, path, data)
 
 class MemoryFile(BytesIO):
     """A BytesIO which can't close and works as a context manager
