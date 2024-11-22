@@ -16,6 +16,34 @@ def get_compression(path, compression):
     if compression == "infer":
         return infer_compression(path)
     return compression
+
+def _expand_paths(path, name_function=None, num=1):
+    """Expand paths containing ``*`` to match the number of files required
+
+    Parameters
+    ----------
+    path: str
+        Path pattern to be expanded
+    name_function: callable, optional
+        If given, generates names from integer indices
+    num: int
+        If name_function is None, expands path to match this number of files
+
+    Returns
+    -------
+    list of str
+        Expanded paths
+    """
+    if isinstance(path, (list, tuple)):
+        return path
+
+    if name_function is None:
+        name_function = build_name_function(num - 1)
+
+    if "*" not in path:
+        return [path]
+
+    return [path.replace("*", name_function(i)) for i in range(num)]
 logger = logging.getLogger('fsspec')
 
 class OpenFile:
