@@ -29,6 +29,10 @@ def _unstrip_protocol(name: str) -> str:
     if "://" in name:
         return name
     return "file://" + name
+
+def isfilelike(obj: Any) -> bool:
+    """Test if an object implements the file-like protocol (read/write/seek)"""
+    return hasattr(obj, "read") and hasattr(obj, "seek") and hasattr(obj, "write")
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
     from fsspec.spec import AbstractFileSystem
