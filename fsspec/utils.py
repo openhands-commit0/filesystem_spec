@@ -40,6 +40,24 @@ def get_protocol(urlpath: str) -> str | None:
         return urlpath.split("://")[0]
     return None
 
+def setup_logging(logger: logging.Logger | None=None, level: str | int="INFO") -> None:
+    """Configure logging for fsspec
+
+    Parameters
+    ----------
+    logger: logging.Logger or None
+        Logger to configure. If None, uses the root logger
+    level: str or int
+        Logging level, like "INFO" or logging.INFO
+    """
+    if logger is None:
+        logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(level)
+
 def isfilelike(obj: Any) -> bool:
     """Test if an object implements the file-like protocol (read/write/seek)"""
     return hasattr(obj, "read") and hasattr(obj, "seek") and hasattr(obj, "write")
