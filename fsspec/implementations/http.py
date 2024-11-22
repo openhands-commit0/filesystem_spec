@@ -82,6 +82,39 @@ class HTTPFileSystem(AsyncFileSystem):
     def _strip_protocol(cls, path):
         """For HTTP, we always want to keep the full URL"""
         pass
+
+    async def _ls(self, url, detail=True, **kwargs):
+        """Get all files in a directory based on links in an HTML page"""
+        session = await self.set_session()
+        try:
+            async with session.get(self.encode_url(url), **self.kwargs) as r:
+                self._raise_not_found_for_status(r, url)
+                text = await r.text()
+        except Exception as e:
+            if detail:
+                raise
+            return []
+
+        if self.simple_links:
+            links = ex2.findall(text) + [u[2] for u in ex.findall(text)]
+        else:
+            links = [u[2] for u in ex.findall(text)]
+
+        out = set()
+        parts = urlparse(url)
+        for l in links:
+            if l.startswith('/') and len(l) > 1:
+                # absolute URL on this server
+                l = parts.scheme + '://' + parts.netloc + l
+            if l.startswith('http'):
+                if self.same_schema and l.startswith(parts.scheme):
+                    out.add(l)
+                elif not self.same_schema:
+                    out.add(l)
+        if detail:
+            return [await self._info(u) for u in out]
+        return list(sorted(out))
+
     ls = sync_wrapper(_ls)
 
     def _raise_not_found_for_status(self, response, url):
