@@ -12,6 +12,23 @@ from hashlib import md5
 from importlib.metadata import version
 from typing import IO, TYPE_CHECKING, Any, Callable, Iterable, Iterator, Sequence, TypeVar
 from urllib.parse import urlsplit
+
+def _unstrip_protocol(name: str) -> str:
+    """Convert back to "protocol://path" format
+
+    Parameters
+    ----------
+    name : str
+        Input path, like "protocol://path" or "path"
+
+    Returns
+    -------
+    str
+        Path with protocol prefix
+    """
+    if "://" in name:
+        return name
+    return "file://" + name
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
     from fsspec.spec import AbstractFileSystem
