@@ -12,6 +12,10 @@ from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.exceptions import FSTimeoutError
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import DEFAULT_BLOCK_SIZE, glob_translate, isfilelike, nullcontext, tokenize
+
+def get_client(**kwargs):
+    """Create an aiohttp.ClientSession with the given kwargs"""
+    return aiohttp.ClientSession(**kwargs)
 from ..caching import AllBytes
 ex = re.compile('<(a|A)\\s+(?:[^>]*?\\s+)?(href|HREF)=["\'](?P<url>[^"\']+)')
 ex2 = re.compile('(?P<url>http[s]?://[-a-zA-Z0-9@:%_+.~#?&/=]+)')
