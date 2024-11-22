@@ -58,6 +58,14 @@ def setup_logging(logger: logging.Logger | None=None, level: str | int="INFO") -
     logger.addHandler(handler)
     logger.setLevel(level)
 
+@contextlib.contextmanager
+def nullcontext(enter_result=None):
+    """Context manager that does nothing
+
+    Useful for conditional context manager usage where one branch does nothing.
+    """
+    yield enter_result
+
 def isfilelike(obj: Any) -> bool:
     """Test if an object implements the file-like protocol (read/write/seek)"""
     return hasattr(obj, "read") and hasattr(obj, "seek") and hasattr(obj, "write")
