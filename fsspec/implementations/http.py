@@ -259,6 +259,15 @@ class HTTPStreamFile(AbstractBufferedFile):
             return r
         self.r = sync(self.loop, cor)
         self.loop = fs.loop
+
+    async def _read(self, length=-1):
+        """Read bytes from stream"""
+        if length < 0:
+            out = await self.r.read()
+        else:
+            out = await self.r.read(length)
+        return out
+
     read = sync_wrapper(_read)
 
     def __reduce__(self):
