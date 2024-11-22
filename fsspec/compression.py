@@ -6,6 +6,17 @@ from fsspec.spec import AbstractBufferedFile
 def noop_file(infile, mode, **kwargs):
     """Return the input file without any compression/decompression"""
     return infile
+
+def unzip(infile, mode, **kwargs):
+    """Wrap ZipFile objects to make them more like file objects"""
+    if 'r' not in mode:
+        raise ValueError("Write mode not supported for zip files")
+    z = ZipFile(infile)
+    if len(z.filelist) != 1:
+        raise ValueError("Zip files containing multiple files are not supported")
+    first = z.filelist[0]
+    return z.open(first, mode)
+
 compr = {None: noop_file}
 
 def register_compression(name, callback, extensions, force=False):
