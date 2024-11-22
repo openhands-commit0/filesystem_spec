@@ -34,6 +34,12 @@ def is_exception(obj: Any) -> bool:
     """Test if an object is an Exception or subclass"""
     return isinstance(obj, BaseException) or (isinstance(obj, type) and issubclass(obj, BaseException))
 
+def get_protocol(urlpath: str) -> str | None:
+    """Return protocol from given URL or None if no protocol is found"""
+    if "://" in urlpath:
+        return urlpath.split("://")[0]
+    return None
+
 def isfilelike(obj: Any) -> bool:
     """Test if an object implements the file-like protocol (read/write/seek)"""
     return hasattr(obj, "read") and hasattr(obj, "seek") and hasattr(obj, "write")
