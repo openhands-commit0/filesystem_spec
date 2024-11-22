@@ -10,6 +10,12 @@ from fsspec.compression import compr
 from fsspec.config import conf
 from fsspec.registry import filesystem, get_filesystem_class
 from fsspec.utils import _unstrip_protocol, build_name_function, infer_compression, stringify_path
+
+def get_compression(path, compression):
+    """Determine compression from path or compression parameter"""
+    if compression == "infer":
+        return infer_compression(path)
+    return compression
 logger = logging.getLogger('fsspec')
 
 class OpenFile:
